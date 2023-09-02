@@ -1,0 +1,775 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_predict
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import  mean_absolute_error, r2_score
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.tree import DecisionTreeRegressor
+
+
+
+"""
+def format_cybercrime() is for 
+Figure-2 Figure-8
+"""
+# the format_cybercrime is for adding weekly total column
+def format_cybercrime(input_file, output_file):
+    # Read the data from the CSV file into a pandas DataFrame
+    data = pd.read_csv(input_file)
+    #data = pd.read_csv(input_file, sep=';', header=0, nrows=10000)
+    data['Weekly total'] = data.iloc[:, 1:].sum(axis=1)
+    #print(data)
+
+    # Calculate Min value, Q1 (first quartile), median, Q3 and max of Weekly total
+    min_value = np.min(data['Weekly total'])
+    q1 = np.percentile(data['Weekly total'], 25)
+    median = np.median(data['Weekly total'])
+    q3 = np.percentile(data['Weekly total'], 75)
+    max_value = np.max(data['Weekly total'])
+    # print the result
+    print(f"Min: {min_value}")
+    print(f"Q1: {q1}")
+    print(f"Median: {median}")
+    print(f"Q3: {q3}")
+    print(f"Max: {max_value}")
+
+    #data.to_csv(output_file, index=False)
+
+
+# the files path
+cybercrime = fr'D:\Final_project\Currency_data\Cybercrime_on_Canada.csv'
+cybercrime_data = fr'D:\Final_project\Currency_data\cybercrime_data.csv'
+#format_cybercrime(cybercrime, cybercrime_data)
+
+
+"""
+def transfer_crypto_data() is for 
+Figure-3  Figure-9  Figure-10
+"""
+# transfer_data is for clean and filter crypto data which have 3 steps
+# filter date column and price that present at closed time on day
+# add more 90 day to cybercrime sheet
+# match data from crypto and cybercrime file base on date column
+def transfer_crypto_data(input_file, output_file):
+    # Read the data from the CSV file into a pandas DataFrame
+    df1 = pd.read_csv(input_file, sep=';', header=0, usecols = [0,7], nrows=10000)
+    # Convert the "timeOpen" column to datetime type
+    df1['timeOpen'] = df1['timeOpen'].str[:10].replace('-', '', regex=True)
+    df1.columns = ['Date', 'Price']
+    # Convert the 'date' column in df1 to datetime format
+    df1['Date'] = pd.to_datetime(df1['Date'])
+    #print(df1)
+
+
+    # read cybercrimes dataset
+    data = pd.read_csv('D:\Final_project\Currency_data\cybercrime_data.csv', parse_dates=['Date'])
+
+    # Convert additional dates to datetime format
+    additional_dates = ['20130909', '20130916', '20130923', '20131007', '20131014', '20131021', '20131028', '20131104',
+                        '20131111', '20131118', '20131125', '20131202', '20131209', '20131216', '20131223', '20131231',
+                        '20220107', '20220114', '20220121', '20220128', '20220204', '20220211', '20220218', '20220225',
+                        '20220304', '20220311', '20220318', '20220325', '20220401']
+
+    additional_dates = pd.to_datetime(additional_dates)
+    #print(additional_dates)
+    # Create a DataFrame with only the 'date' column
+    additional_data = pd.DataFrame({'Date': additional_dates})
+    # Concatenate the original data and additional date data
+    df2 = pd.concat([data, additional_data], ignore_index=True)
+    # Sort the DataFrame by the 'date' column in ascending order
+    df2.sort_values(by='Date', inplace=True)
+    # Print the modified DataFrame
+    df2['Date'] = pd.to_datetime(df2['Date'])
+    #print(df2.dtypes)
+
+    # Merge the two dataframes on the 'date' column
+    merged_data = pd.merge(df1, df2, on='Date', how='inner')
+    merged_data['Date'] = pd.to_datetime(merged_data['Date']).dt.strftime('%Y%m%d')
+    # change the date format to float64
+    merged_data['Date'] = pd.to_numeric(merged_data['Date'], errors='coerce')
+
+    #sort date by increase
+    df = merged_data[['Date', 'Price']]
+    df.sort_values(by='Date', inplace=True)
+    #print(df.head(30))
+
+    df.columns = ['Date', 'Price']
+    # save data as csv file
+    df.to_csv(output_file, index=False)
+
+# first line is bitcoin dataset
+Bitcoin_input = fr'D:\Final_project\Currency_data\Bitcoin.csv'
+Bitcoin_output = fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+#transfer_crypto_data(Bitcoin_input, Bitcoin_output)
+
+
+Ethereum_input = fr'D:\Final_project\Currency_data\Ethereum.csv'
+Ethereum_output = fr'D:\Final_project\Currency_data\Ethereum_data.csv'
+#transfer_crypto_data(Ethereum_input, Ethereum_output)
+
+XRP_input = fr'D:\Final_project\Currency_data\XRP.csv'
+XRP_output = fr'D:\Final_project\Currency_data\XRP_data.csv'
+#transfer_crypto_data(XRP_input, XRP_output)
+
+
+"""
+def Crypto_price_chart() is for 
+Figure-12  Figure-13  Figure-14
+"""
+# price chart is for show crypto price chart
+def Crypto_price_chart(input_file, currency_name):
+    # Read the data from the CSV file into a pandas DataFrame
+    df = pd.read_csv(input_file, header=0, nrows=10000)
+
+    # convert date formate to datetime via datetime lirbary
+    df['Date'] = pd.to_datetime(df['Date'], format='%Y%m%d')
+    # sort data by date as increase trent
+    df.sort_values(by='Date', ascending=True, inplace=True)
+
+    # draw chart
+    plt.figure(figsize=(12, 6))
+    plt.plot(df['Date'], df['Price'], linestyle='-', color='b')
+    plt.xlabel('Date')
+    plt.ylabel('Price')
+    plt.title(currency_name+' Price Action')
+    plt.xticks(rotation=45)
+    # Reduce x-axis scale density
+    plt.gca().xaxis.set_major_locator(plt.MaxNLocator(10))
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+Bitcoin = fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+currency_name = 'Bitcoin'
+#Crypto_price_chart(Bitcoin, currency_name)
+
+Ethereum = fr'D:\Final_project\Currency_data\Ethereum_data.csv'
+currency_name = 'Ethereum'
+#Crypto_price_chart(Ethereum, currency_name)
+
+XRP = fr'D:\Final_project\Currency_data\XRP_data.csv'
+currency_name = 'XRP'
+#Crypto_price_chart(XRP, XRP_output)
+
+
+"""
+def Crypto_correlation_data() is for 
+Figure-15
+"""
+#correlation_data is for producing Pearson correlation coefficient on two datasets
+def Crypto_correlation_data(input_file1, input_file2, name1, name2):
+    # Read the data from the first data CSV file into a pandas DataFrame
+    df1 = pd.read_csv(input_file1, parse_dates=['Date'])
+
+    # Read the data from the second CSV file into a pandas DataFrame
+    df2 = pd.read_csv(input_file2, parse_dates=['Date'])
+
+    # Merge the two datasets on 'date' to get the common data points
+    merged_df = pd.merge(df1, df2, on='Date', suffixes=('_1', '_2'))
+
+    merged_df[name1] = merged_df['Price_1']
+    merged_df[name2] = merged_df['Price_2']
+    # Calculate the correlation matrix
+    correlation_matrix = merged_df[[name1, name2]].corr()
+
+    # Plot the correlation heatmap
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
+    plt.title('Correlation Matrix of ' + name1 + ' and ' + name2, fontsize=16)
+    plt.show()
+
+# the correlation about Bitcoin and  XRP
+input_file1= fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+input_file2= fr'D:\Final_project\Currency_data\XRP_data.csv'
+name1 = 'XRP'
+name2 = 'Bitcoin'
+#Crypto_correlation_data(input_file1, input_file2, name1, name2)
+
+# the correlation about Bitcoin and  Ethereum
+input_file1= fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+input_file2= fr'D:\Final_project\Currency_data\Ethereum_data.csv'
+name1 = 'Ethereum'
+name2 = 'Bitcoin'
+#Crypto_correlation_data(input_file1, input_file2, name1, name2)
+
+# the correlation about XRP and  Ethereum
+input_file1= fr'D:\Final_project\Currency_data\XRP_data.csv'
+input_file2= fr'D:\Final_project\Currency_data\Ethereum_data.csv'
+name1 = 'Ethereum'
+name2 = 'XRP'
+#Crypto_correlation_data(input_file1, input_file2, name1, name2)
+
+
+
+"""
+def draw_Rolling_correlation()  and def Crypto_correlation_data() is for 
+Figure-16
+"""
+# correlation2 is for producing Pearson correlation coefficient on bitcoin and cybercrime data
+# based on different date.
+def Rolling_correlation(data1, data2, num):
+    # Read the bitcoin data from the first data CSV file into a pandas DataFrame
+    df1 = pd.read_csv(data1, parse_dates=['Date'])
+    df1['Price'] = df1['Price'].shift(num)
+
+    # Read the cybercrime data from the second data CSV file into a pandas DataFrame
+    df2 = pd.read_csv(data2, parse_dates=['Date'])
+    df2 = df2[['Date', 'Weekly total']]
+
+    # Merge the two datasets on 'date' to get the common data points
+    merged_df = pd.merge(df1, df2, on='Date')
+    #print(merged_df)
+
+    # Calculate the correlation matrix
+    correlation_matrix = merged_df[['Price', 'Weekly total']].corr()
+    correlation_coefficient = correlation_matrix.loc['Price', 'Weekly total']
+    return correlation_coefficient
+
+# draw correlation bar chart
+def draw_Rolling_correlation():
+    Bitcoin = fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+    Cybercrime = fr'D:\Final_project\Currency_data\cybercrime_data.csv'
+
+    all_lists = []
+    for i in range(14):
+        num = Rolling_correlation(Bitcoin, Cybercrime, i)
+        all_lists.append(num)
+    print(all_lists)
+
+    x_labels = list(range(14))
+
+    # create bar figure
+    plt.bar(x_labels, all_lists, color='red')
+    # Labeling values to three decimal places above the columns
+    for i, value in enumerate(all_lists):
+        plt.text(i, value + 0.02, f'{value:.3f}', ha='center', va='bottom', fontsize=10)
+
+    # set title name
+    plt.title("Correlation Coefficients in 14 weeks")
+    plt.xlabel("Week")
+    plt.ylabel("Correlation Coefficient")
+
+    plt.show()
+
+#draw_Rolling_correlation()
+
+
+"""
+def Cybercrime_type_correlation()  and def draw_figure() is for 
+Figure-17
+"""
+def Cybercrime_type_correlation(data1, data2, name):
+    # bitcoin data
+    df1 = pd.read_csv(data1, parse_dates=['Date'])
+    df1['Price'] = df1['Price'].shift(3)
+
+    # cybercrime data
+    df2 = pd.read_csv(data2, parse_dates=['Date'])
+    df2 = df2[['Date', name]]
+
+    # Merge the two datasets on 'date' to get the common data points
+    merged_df = pd.merge(df1, df2, on='Date')
+
+    # Calculate the correlation matrix
+    correlation_matrix = merged_df[['Price', name]].corr()
+    correlation_coefficient = correlation_matrix.loc['Price', name]
+    return correlation_coefficient
+
+def draw_figure():
+    name_list = ['Homicide and other related violations', 'Invitation to sexual touching', 'Sexual exploitation',
+                 'Luring a child via a computer', 'Voyeurism', 'Non-consensual distribution of intimate images',
+                 'Extortion',
+                 'Criminal harassment', 'Indecent/Harassing communications', 'Uttering threats',
+                 'Other violent violations',
+                 'Fraud', 'Identity theft', 'Identity fraud', 'Mischief', 'Other non-violent violations',
+                 'Fail to comply with order', 'Indecent acts', 'Child pornography',
+                 'Making or distribution of child pornography', 'Corrupting morals', 'Breach of probation',
+                 'Utter threats to property or animal',
+                 'Offences against the person and reputation (Part VIII Criminal Code)',
+                 'Other Criminal Code', 'Other violations', 'Weekly total']
+
+    Bitcoin = fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+    Cybercrime = fr'D:\Final_project\Currency_data\cybercrime_data.csv'
+    all_list = []
+    for i in range(0, 26):
+        print(name_list[i])
+        value = Cybercrime_type_correlation(Bitcoin, Cybercrime, name_list[i])
+        all_list.append(value)
+    # print(all_list)
+
+    # sorted name_list and all_lis
+    sorted_indices = sorted(range(len(all_list)), key=lambda k: all_list[k], reverse=True)
+    sorted_name_list = [name_list[i] for i in sorted_indices]
+    sorted_all_list = [all_list[i] for i in sorted_indices]
+
+    # create bar
+    plt.figure(figsize=(12, 6))
+    plt.bar(sorted_name_list, sorted_all_list, color='red')
+
+    # Labeling values to three decimal places above the columns
+    for i, value in enumerate(sorted_all_list):
+        plt.text(i, value + 0.02, f'{value:.3f}', ha='center', va='bottom', fontsize=10)
+
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.ylabel("Correlation Coefficient")
+    plt.show()
+
+#draw_figure()
+
+
+"""
+def other_variables_chart()  is for 
+Figure-18
+"""
+def other_variables_chart(input_file, variable_name):
+    # Read the data from the first data CSV file into a pandas DataFrame
+    df = pd.read_csv(input_file, parse_dates=['Date'])
+    df = df[['Date', variable_name]]
+
+    df['Date'] = pd.to_datetime(df['Date'], format='%Y%m%d')
+    # sort data by date as increase trent
+    df.sort_values(by='Date', ascending=True, inplace=True)
+
+    # draw chart
+    plt.figure(figsize=(12, 6))
+    plt.plot(df['Date'], df[variable_name], linestyle='-', color='b')
+    plt.xlabel('Date')
+    plt.ylabel('Count')
+    plt.title(variable_name + ' Trend Chart')
+    plt.xticks(rotation=45)
+    # Reduce x-axis scale density
+    plt.gca().xaxis.set_major_locator(plt.MaxNLocator(10))
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+variables_input = fr'D:\Final_project\Currency_data\data\other_variables.csv'
+variable_name1 = 'GDP'
+variable_name2 = 'Unemployment_rate'
+variable_name3 = 'ICT_employment'
+#other_variables_chart(variables_input, variable_name3)
+
+"""
+def other_variables_chart()  is for 
+Figure-19
+"""
+def other_correlation(data1, data2, name):
+    # cybercrime
+    df1 = pd.read_csv(data1, parse_dates=['Date'])
+    df1 = df1[['Date', 'Weekly total']]
+
+    # other_variables files
+    df2 = pd.read_csv(data2, parse_dates=['Date'])
+    df2 = df2[['Date', name]]
+
+    # Merge the two datasets on 'date' to get the common data points
+    merged_df = pd.merge(df1, df2, on='Date')
+    #print(merged_df)
+
+    # Calculate the correlation matrix
+    correlation_matrix = merged_df[['Weekly total', name]].corr()
+    correlation_coefficient = correlation_matrix.loc['Weekly total', name]
+    print(correlation_coefficient)
+
+
+variables_input = fr'D:\Final_project\Currency_data\data\other_variables.csv'
+cybercrime_input = fr'D:\Final_project\Currency_data\cybercrime_data.csv'
+variable_name1 = 'GDP'
+variable_name2 = 'Unemployment_rate'
+variable_name3 = 'ICT_employment'
+#other_correlation(cybercrime_input, variables_input, variable_name2)
+
+
+#######################
+# from now will using the corn methods to anlaysis
+
+"""
+def Multiple_Linear_Regression()  is for 
+Figure-20  Figure-22
+"""
+def Multiple_Linear_Regression(data1, data2, data3):
+    # cybercrime
+    df1 = pd.read_csv(data1, parse_dates=['Date'])
+    df1 = df1[['Date', 'Weekly total']]
+
+    # Read the bitcoin data
+    df2 = pd.read_csv(data2, parse_dates=['Date'])
+    df2['Price'] = df2['Price'].shift(3)
+
+    # Read the other variable data from the third data CSV file into a pandas DataFrame
+    df3 = pd.read_csv(data3, parse_dates=['Date'])
+    df3 = df3[['Date', 'GDP', 'ICT_employment']]
+
+    # Merge the two datasets on 'date' to get the common data points
+    merged_df = pd.merge(df1, df2, on='Date', how='inner')
+    merged_df = pd.merge(merged_df, df3, on='Date', how='inner')
+    #print(merged_df)
+
+    X = merged_df[['GDP', 'ICT_employment', 'Price']]
+    y = merged_df['Weekly total']
+
+    model = LinearRegression()
+    model.fit(X, y)
+
+    coefficients = model.coef_
+    intercept = model.intercept_
+    print(coefficients)
+    print(intercept)
+
+    # Predict the target values
+    y_pred = model.predict(X)
+
+    # Calculate R-squared value
+    r_squared = r2_score(y, y_pred)
+    #print(f'R-squared value: {r_squared}')
+
+    mae = mean_absolute_error(y, y_pred)
+    #print(f'Mean Absolute Error (MAE): {mae}')
+
+
+    plt.figure(figsize=(8, 6))
+    plt.scatter(y, y_pred, alpha=0.5)
+
+    #Adding Diagonal Lines
+    plt.plot([min(y), max(y)], [min(y), max(y)], linestyle='-', color='red')
+
+    plt.title('Multiple Linear Regression  Actual vs. Predicted Values')
+    plt.xlabel('Actual Values')
+    plt.ylabel('Predicted Values')
+    plt.grid(True)
+    plt.show()
+    # showing picture
+    plt.show()
+
+    # k Cross-validated predictions
+    y_cv_pred = cross_val_predict(model, X, y, cv=10)
+    cv_mae = mean_absolute_error(y, y_cv_pred)
+    cv_r_squared = r2_score(y, y_cv_pred)
+    print(f'cv_R-squared value: {cv_r_squared}')
+    print(f'cv_Mean Absolute Error (MAE): {cv_mae}')
+
+
+Bitcoin = fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+#Multiple_Linear_Regression(cybercrime_input, Bitcoin, variables_input)
+
+
+"""
+def independent_variables_correlation()  is for 
+ Figure-23
+"""
+def independent_variables_correlation(data1, data2, name1, name2):
+    # cybercrime
+    df1 = pd.read_csv(data1, parse_dates=['Date'])
+    df1 = df1[['Date', 'Price']]
+
+    # other variables
+    df2 = pd.read_csv(data2, parse_dates=['Date'])
+
+    # Merge the two datasets on 'date' to get the common data points
+    merged_df = pd.merge(df1, df2, on='Date')
+    #print(merged_df)
+
+    # Calculate the correlation matrix
+    correlation_matrix = merged_df[[name1, name2]].corr()
+    correlation_coefficient = correlation_matrix.loc[name1, name2]
+    print(correlation_coefficient)
+
+
+variables_input = fr'D:\Final_project\Currency_data\data\other_variables.csv'
+Bitcoin = fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+variable_name1 = 'Price'
+variable_name2 = 'GDP'
+variable_name3 = 'ICT_employment'
+#correlation2(Bitcoin, variables_input, variable_name2, variable_name3)
+
+
+"""
+def PCA_and_liner()  is for 
+ Figure-24
+"""
+def PCA_and_liner(data1, data2, data3):
+    # bitcoin
+    df1 = pd.read_csv(data1, parse_dates=['Date'])
+    df1['Price'] = df1['Price'].shift(3)
+
+    # Read the cybercrime data from the second data CSV file into a pandas DataFrame
+    df3 = pd.read_csv(data3, parse_dates=['Date'])
+    df3 = df3[['Date', 'Weekly total']]
+    #print(df3.dtypes)
+
+    # other variables
+    df2 = pd.read_csv(data2, parse_dates=['Date'])
+
+    # Merge the two datasets on 'date' to get the common data points
+    merged_df = pd.merge(df1, df2, on='Date')
+    merged_df = merged_df[['Price', 'GDP', 'ICT_employment']]
+    #print(merged_df)
+
+    # Standardized data
+    scaler = StandardScaler()
+    scaled_data = scaler.fit_transform(merged_df)
+
+    # Create a PCA object and set the number of principal components to 1
+    pca = PCA(n_components=1)
+
+    # PCA on normalized data
+    pca.fit(scaled_data)
+
+    # Getting Principal Components
+    principal_components = pca.components_
+
+    # Projecting data onto principal components using PCA modeling
+    projected_data = pca.transform(scaled_data)
+    projected_data = projected_data.tolist()
+
+    # Converting a list into a DataFrame
+    flat_list = [value[0] for value in projected_data]
+    df_list = pd.DataFrame({'PCA_variable': flat_list })
+
+    # Using the concat function to merge two DataFrames by columns
+    merged_df1 = pd.concat([df3, df_list], axis=1)
+    #print(merged_df1)
+
+
+    # Prepare data on independent and dependent variables
+    X = merged_df1[['PCA_variable']]
+    y = merged_df1['Weekly total']
+
+    # Creating a linear regression model
+    model = LinearRegression()
+
+    # fit a model
+    model.fit(X, y)
+
+    # Obtain regression coefficients and intercepts
+    coefficients = model.coef_
+    intercept = model.intercept_
+    print(coefficients)
+    print(intercept)
+
+    # Predicting the value of the dependent variable
+    y_pred = model.predict(X)
+
+
+    # Calculate R-squared value
+    r_squared = r2_score(y, y_pred)
+    print(f'R-squared value: {r_squared}')
+
+    mae = mean_absolute_error(y, y_pred)
+    print(f'Mean Absolute Error (MAE): {mae}')
+
+
+    # Create a new graphic
+    plt.figure(figsize=(8, 6))
+
+    # Plotting raw data points
+    plt.scatter(X, y, color='blue', label='原始数据点')
+
+    # Plotting the regression line
+    plt.plot(X, y_pred, color='red', linewidth=2, label='least squares line')
+
+    # Add tags and titles
+    plt.xlabel('PCA_variable')
+    plt.ylabel('Weekly total')
+    plt.title('least squares line on PCA_variable and cybercrime')
+
+    plt.legend()
+
+    plt.show()
+
+    # k Cross-validated predictions
+    y_cv_pred = cross_val_predict(model, X, y, cv=10)
+    cv_mae = mean_absolute_error(y, y_cv_pred)
+    cv_r_squared = r2_score(y, y_cv_pred)
+    print(f'cv_R-squared value: {cv_r_squared}')
+    print(f'cv_Mean Absolute Error (MAE): {cv_mae}')
+
+
+variables_input = fr'D:\Final_project\Currency_data\data\other_variables.csv'
+Bitcoin = fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+Cybercrime = fr'D:\Final_project\Currency_data\cybercrime_data.csv'
+#PCA_and_liner(Bitcoin, variables_input, Cybercrime)
+
+"""
+def PCA_and_liner()  is for 
+ Figure-25
+"""
+def Random_forest(data1, data2, data3):
+    # bitcoin
+    df1 = pd.read_csv(data1, parse_dates=['Date'])
+    df1['Price'] = df1['Price'].shift(3)
+
+    # Read the cybercrime data from the second data CSV file into a pandas DataFrame
+    df3 = pd.read_csv(data3, parse_dates=['Date'])
+    df3 = df3[['Date', 'Weekly total']]
+    #print(df3.dtypes)
+
+    # other variables
+    df2 = pd.read_csv(data2, parse_dates=['Date'])
+
+    # Merge the two datasets on 'date' to get the common data points
+    merged_df = pd.merge(df1, df2, on='Date')
+    merged_df = pd.merge(merged_df, df3, on='Date')
+    data = merged_df[['Date', 'Weekly total', 'Price', 'GDP', 'ICT_employment']]
+
+    # Define the independent and dependent variables
+    X = data[['GDP', 'Price', 'ICT_employment']]
+    y = data['Weekly total']
+
+    # Split the data into a training set and a test set
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    # Creating a Random Forest Regression Model
+    rf_regressor = RandomForestRegressor(n_estimators=100, random_state=42)
+
+    # fit a model
+    rf_regressor.fit(X_train, y_train)
+
+    # Predicting the value of the dependent variable
+    y_pred = rf_regressor.predict(X_test)
+
+    # Computational modeling performance metrics
+    mae = mean_absolute_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+
+    print(f"MSE: {mae}")
+    print(f"R-squared（R^2）: {r2}")
+
+
+    # Calculate the minimum and maximum values of y_test and y_pred
+    min_value = min(y_test.min(), y_pred.min())
+    max_value = max(y_test.max(), y_pred.max())
+
+    # Creating a drawing
+    plt.figure(figsize=(8, 6))
+
+    # Adding Diagonal Lines
+    plt.plot([min_value, max_value], [min_value, max_value], color='red', linestyle='-', label='Diagonal Line')
+
+    #Plotting Scatter Plots
+    plt.scatter(y_test, y_pred, alpha=0.5)
+
+
+    plt.title('Random forest Actual vs. Predicted Values')
+    plt.xlabel('Actual Values')
+    plt.ylabel('Predicted Values')
+    plt.grid(True)
+    plt.show()
+
+    # k Cross-validated predictions
+    y_cv_pred = cross_val_predict(rf_regressor, X, y, cv=10)
+    cv_mae = mean_absolute_error(y, y_cv_pred)
+    cv_r_squared = r2_score(y, y_cv_pred)
+    print(f'cv_R-squared value: {cv_r_squared}')
+    print(f'cv_Mean Absolute Error (MAE): {cv_mae}')
+
+# file path
+variables_input = fr'D:\Final_project\Currency_data\data\other_variables.csv'
+Bitcoin = fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+Cybercrime = fr'D:\Final_project\Currency_data\cybercrime_data.csv'
+#Random_forest(Bitcoin, variables_input, Cybercrime)
+
+
+"""
+def def Decision_tree()  is for 
+ Figure-27  Figure-28 Figure-29
+"""
+
+def Decision_tree(data1, data2, data3):
+    # bitcoin
+    df1 = pd.read_csv(data1, parse_dates=['Date'])
+    df1['Price'] = df1['Price'].shift(3)
+
+    # Read the cybercrime data from the second data CSV file into a pandas DataFrame
+    df3 = pd.read_csv(data3, parse_dates=['Date'])
+    df3 = df3[['Date', 'Weekly total']]
+    #print(df3.dtypes)
+
+    # other variables
+    df2 = pd.read_csv(data2, parse_dates=['Date'])
+
+    # Merge the two datasets on 'date' to get the common data points
+    merged_df = pd.merge(df1, df2, on='Date')
+    merged_df = pd.merge(merged_df, df3, on='Date')
+    data = merged_df[['Date', 'Weekly total', 'Price', 'GDP', 'ICT_employment']]
+    #print(data)
+
+    X = data[['GDP', 'Price', 'ICT_employment']]
+    y = data['Weekly total']
+
+    regression_tree = DecisionTreeRegressor(random_state=0)
+    regression_tree.fit(X, y)
+
+    # prediction
+    y_pred = regression_tree.predict(X)
+
+
+    # Visualizing the structure and feature importance of regression decision trees (optional)
+    import matplotlib.pyplot as plt
+    from sklearn.tree import plot_tree
+
+    plt.figure(figsize=(8, 6))
+    plot_tree(regression_tree, filled=True, feature_names=X.columns, max_depth=10)  # 限制深度为3
+    plt.show()
+
+    importances = regression_tree.feature_importances_
+    feature_names = X.columns
+    plt.figure(figsize=(8, 4))
+    plt.barh(feature_names, importances)
+    plt.xlabel('feature importance')
+    plt.ylabel('features')
+    plt.show()
+
+    # Split the data into a training set and a test set
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    regression_tree = DecisionTreeRegressor(random_state=0)
+    regression_tree.fit(X_train, y_train)
+
+    y_pred = regression_tree.predict(X_test)  # X_test包含测试数据的自变量
+    r_squared = r2_score(y_test, y_pred)  # y_test包含测试数据的因变量
+    print(f"R-squared (R²): {r_squared}")
+
+    mae = mean_absolute_error(y_test, y_pred)
+    print(f"Mean Absolute Error (MAE): {mae}")
+
+
+    # Calculate the minimum and maximum values of y_test and y_pred
+    min_value = min(y_test.min(), y_pred.min())
+    max_value = max(y_test.max(), y_pred.max())
+
+    # create bar
+    plt.figure(figsize=(8, 6))
+
+    # Adding Diagonal Lines
+    plt.plot([min_value, max_value], [min_value, max_value], color='red', linestyle='-', label='Diagonal Line')
+
+    # Plotting Scatter Plots
+    plt.scatter(y_test, y_pred, alpha=0.5)
+
+
+    plt.title('Regression Decision Tree  Actual vs. Predicted Values')
+    plt.xlabel('Actual Values')
+    plt.ylabel('Predicted Values')
+    plt.grid(True)
+    plt.show()
+
+    # k Cross-validated predictions
+    y_cv_pred = cross_val_predict(regression_tree, X, y, cv=10)
+    cv_mae = mean_absolute_error(y, y_cv_pred)
+    cv_r_squared = r2_score(y, y_cv_pred)
+    print(f'cv_R-squared value: {cv_r_squared}')
+    print(f'cv_Mean Absolute Error (MAE): {cv_mae}')
+
+# file path
+variables_input = fr'D:\Final_project\Currency_data\data\other_variables.csv'
+Bitcoin = fr'D:\Final_project\Currency_data\Bitcoin_data.csv'
+Cybercrime = fr'D:\Final_project\Currency_data\cybercrime_data.csv'
+Decision_tree(Bitcoin, variables_input, Cybercrime)
